@@ -28,3 +28,5 @@ bin/
 
 ### Other ###
 .kotlin/
+*.log
+config.json
