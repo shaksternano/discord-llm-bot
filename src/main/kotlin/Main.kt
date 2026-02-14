@@ -88,8 +88,8 @@ fun main() {
                 while (responding) {
                     if (text != lastSentText) {
                         sendUpdatedResponse(text)
-                        delay(sendInterval)
                         lastSentText = text
+                        delay(sendInterval)
                     }
                 }
             }
