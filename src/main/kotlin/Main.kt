@@ -69,23 +69,27 @@ fun main() {
                 .model(model)
                 .build()
 
-            var active = true
+            var responding = true
             var replied = false
             var text = ""
             var lastSentText = ""
             val sendInterval = 0.1.seconds
 
+            suspend fun sendUpdatedResponse(text: String) {
+                if (replied) {
+                    event.hook.editOriginal(text).await()
+                } else {
+                    event.hook.sendMessage(text).await()
+                    replied = true
+                }
+            }
+
             val commandResponseJob = launch {
-                while (active) {
+                while (responding) {
                     if (text != lastSentText) {
-                        if (replied) {
-                            event.hook.editOriginal(text).await()
-                        } else {
-                            event.hook.sendMessage(text).await()
-                            replied = true
-                        }
-                        lastSentText = text
+                        sendUpdatedResponse(text)
                         delay(sendInterval)
+                        lastSentText = text
                     }
                 }
             }
@@ -94,8 +98,12 @@ fun main() {
                 text += it
             }
 
-            active = false
+            responding = false
             commandResponseJob.join()
+
+            if (text != lastSentText) {
+                sendUpdatedResponse(text)
+            }
         }
     }
 
