@@ -1,21 +1,39 @@
 package com.shakster.discordllmbot
 
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.*
 import java.nio.file.Path
-import kotlin.io.path.absolute
-import kotlin.io.path.exists
-import kotlin.io.path.isRegularFile
-import kotlin.io.path.readText
-import kotlin.io.path.writeText
+import kotlin.io.path.*
 
 @Serializable
 data class Config(
     val discordBotToken: String,
     val openAiApiUrl: String = "",
     val openAiApiKey: String = "",
-    val models: List<String> = listOf(),
+    val models: List<ModelConfig> = listOf(),
 ) {
+    @Serializable
+    data class ModelConfig(
+        val name: String,
+        val params: JsonObject = buildJsonObject {},
+    ) {
+        val paramsMap: Map<String, Any?>
+            @Suppress("UNCHECKED_CAST")
+            get() = toRaw(params) as Map<String, Any?>
+
+        private fun toRaw(json: JsonElement): Any? {
+            return when (json) {
+                is JsonPrimitive -> {
+                    json.doubleOrNull ?: json.booleanOrNull ?: json.contentOrNull
+                }
+
+                is JsonArray -> json.map { toRaw(it) }
+
+                is JsonObject -> json.mapValues { toRaw(it.value) }
+            }
+        }
+    }
+
     companion object {
         fun load(path: Path): Config? {
             val json = Json {

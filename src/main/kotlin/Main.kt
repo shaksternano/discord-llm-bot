@@ -3,6 +3,7 @@
 package com.shakster.discordllmbot
 
 import com.openai.client.okhttp.OpenAIOkHttpClientAsync
+import com.openai.core.JsonValue
 import com.openai.credential.BearerTokenCredential
 import com.openai.models.responses.ResponseCreateParams
 import dev.minn.jda.ktx.coroutines.await
@@ -51,22 +52,37 @@ fun main() {
                 .await()
             return@onCommand
         }
-        val model = event.getOption<String>("model")
-            ?: config.models.firstOrNull()
-            ?: run {
-                logger.error("No models configured in config.json")
-                event.reply("No models configured!")
-                    .setEphemeral(true)
-                    .await()
-                return@onCommand
-            }
+
+        val selectedModel = event.getOption<String>("model")
+        val modelConfig = if (selectedModel != null) {
+            config.models.find { it.name == selectedModel }
+                ?: run {
+                    logger.error("Model $selectedModel not found in config.json")
+                    event.reply("An error occurred!")
+                        .setEphemeral(true)
+                        .await()
+                    return@onCommand
+                }
+        } else {
+            config.models.firstOrNull()
+                ?: run {
+                    logger.error("No models configured in config.json")
+                    event.reply("No models configured!")
+                        .setEphemeral(true)
+                        .await()
+                    return@onCommand
+                }
+        }
 
         event.deferReply().await()
 
         coroutineScope {
             val params = ResponseCreateParams.builder()
                 .input(prompt)
-                .model(model)
+                .model(modelConfig.name)
+                .additionalBodyProperties(modelConfig.paramsMap.mapValues {
+                    JsonValue.from(it.value)
+                })
                 .build()
 
             var responding = true
@@ -110,21 +126,24 @@ fun main() {
     val chatCommand = Command("chat", "Chat with the LLM") {
         setContexts(InteractionContextType.ALL)
         setIntegrationTypes(IntegrationType.ALL)
-        addOptions(
-            OptionData(
-                OptionType.STRING,
-                "prompt",
-                "The prompt to send to the LLM",
-                true,
-            ),
-            OptionData(
-                OptionType.STRING,
-                "model",
-                "The LLM model to use",
-            ).addChoices(config.models.map {
-                Command.Choice(it, it)
-            }),
-        )
+        addOption(
+            OptionType.STRING,
+            "prompt",
+            "The prompt to send to the LLM",
+            true,
+
+            )
+        if (config.models.size > 1) {
+            addOptions(
+                OptionData(
+                    OptionType.STRING,
+                    "model",
+                    "The LLM model to use",
+                ).addChoices(config.models.map {
+                    Command.Choice(it.name, it.name)
+                }),
+            )
+        }
     }
 
     jda.updateCommands {
