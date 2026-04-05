@@ -1,9 +1,9 @@
 package com.shakster.discordllmbot
 
 import com.openai.client.OpenAIClientAsync
+import com.openai.models.responses.ResponseCompletedEvent
 import com.openai.models.responses.ResponseCreateParams
 import com.openai.models.responses.ResponseTextDeltaEvent
-import com.openai.models.responses.ResponseTextDoneEvent
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.awaitClose
@@ -76,7 +76,7 @@ private object OutputTextDeltaVisitor : ResponseVisitor<StreamingResponse>() {
         return StreamingResponse.TextDelta(outputTextDelta.delta())
     }
 
-    override fun visitOutputTextDone(outputTextDone: ResponseTextDoneEvent): StreamingResponse {
+    override fun visitCompleted(completed: ResponseCompletedEvent): StreamingResponse {
         return StreamingResponse.Done
     }
 }
