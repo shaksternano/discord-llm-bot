@@ -20,14 +20,18 @@ fun OpenAIClientAsync.streamingResponse(
     params: ResponseCreateParams,
     startTimeout: Duration = 1.minutes,
     updateTimeout: Duration = 5.seconds,
+    finishTimeout: Duration = 5.minutes,
 ): Flow<String> {
     return callbackFlow {
         var started = false
-        var doTimeout = true
+        var doTimeout: Boolean
 
-        val startTimeoutJob = launch {
+        val timeoutJob = launch {
             delay(startTimeout)
             if (!started) {
+                close()
+            } else {
+                delay(finishTimeout)
                 close()
             }
         }
@@ -61,7 +65,7 @@ fun OpenAIClientAsync.streamingResponse(
             }
 
         awaitClose {
-            startTimeoutJob.cancel()
+            timeoutJob.cancel()
             updateTimeoutJob.cancel()
         }
     }.buffer(Channel.UNLIMITED)
