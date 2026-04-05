@@ -4,6 +4,7 @@ import com.openai.client.OpenAIClientAsync
 import com.openai.models.responses.ResponseCompletedEvent
 import com.openai.models.responses.ResponseCreateParams
 import com.openai.models.responses.ResponseTextDeltaEvent
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.awaitClose
@@ -26,12 +27,9 @@ fun OpenAIClientAsync.streamingResponse(
         var started = false
         var doTimeout: Boolean
 
-        val timeoutJob = launch {
+        val startTimeoutJob = launch {
             delay(startTimeout)
             if (!started) {
-                close()
-            } else {
-                delay(finishTimeout)
                 close()
             }
         }
@@ -49,6 +47,11 @@ fun OpenAIClientAsync.streamingResponse(
             }
         }
 
+        val finishTimeoutJob = launch(start = CoroutineStart.LAZY) {
+            delay(finishTimeout)
+            close()
+        }
+
         responses()
             .createStreaming(params)
             .subscribe {
@@ -56,6 +59,7 @@ fun OpenAIClientAsync.streamingResponse(
                     is StreamingResponse.TextDelta -> {
                         started = true
                         doTimeout = false
+                        finishTimeoutJob.start()
                         trySend(response.delta)
                     }
 
@@ -65,8 +69,9 @@ fun OpenAIClientAsync.streamingResponse(
             }
 
         awaitClose {
-            timeoutJob.cancel()
+            startTimeoutJob.cancel()
             updateTimeoutJob.cancel()
+            finishTimeoutJob.cancel()
         }
     }.buffer(Channel.UNLIMITED)
 }
