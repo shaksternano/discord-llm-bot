@@ -23,9 +23,7 @@ data class Config(
 
         private fun toRaw(json: JsonElement): Any? {
             return when (json) {
-                is JsonPrimitive -> {
-                    json.doubleOrNull ?: json.booleanOrNull ?: json.contentOrNull
-                }
+                is JsonPrimitive -> json.doubleOrNull ?: json.booleanOrNull ?: json.contentOrNull
 
                 is JsonArray -> json.map { toRaw(it) }
 
